@@ -1,7 +1,7 @@
--- local log = require("log")
+local log = require("log")
 local http = require("simplehttp")
 -- 全局 HTTP 超时（秒），避免网络不通时卡住引擎线程
-http.TIMEOUT = 2
+http.TIMEOUT = 5 
 local json = require("json")
 local sha = require("sha2")
 
@@ -48,7 +48,12 @@ local function google(text)
     local encoded_text = url_encode(text)
     local url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=en&dt=t&dt=bd&dt=rm&dt=qca&dt=at&dt=ss&dt=md&dt=ld&dt=ex&dj=1&q=" .. encoded_text
     
+    log.info("google start: " .. url)
+    local t0 = os.time()
     local reply = http.request(url)
+    local dt = os.difftime(os.time(), t0)
+    local rlen = reply and #reply or -1
+    log.info(string.format("google done: len=%d dt=%ds", rlen, dt))
     local success, j = pcall(json.decode, reply)
     
     if success and j then

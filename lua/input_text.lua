@@ -1,4 +1,5 @@
 local translation = require("trans-all")
+local log = require("log")
 
 local function trans(text)
     local result
@@ -36,11 +37,15 @@ function processor.func(key_event, env)
     
     -- 检查是否是配置的快捷键（这里使用 Control+y 作为默认快捷键）
     if key_event:repr() == "Control+y" then
+        log.info("hotkey Control+y pressed")
         -- 获取当前选中的候选词
         local selected_candidate = context:get_selected_candidate()
         if selected_candidate then
             -- 记录高亮候选项到全局状态
+            log.info("selected candidate: " .. tostring(selected_candidate.text))
             context:set_property("translation_highlighted", selected_candidate.text)
+        else
+            log.info("no selected candidate on hotkey")
         end
         
         -- 设置全局触发标志
@@ -65,22 +70,30 @@ function filter.func(input, env)
     -- 模式1：快捷键触发模式
     local triggered = context:get_property("translation_triggered") == "1"
     if triggered then
+        log.info("filter triggered by hotkey")
         context:set_property("translation_triggered", "")  -- 重置标志
         
         -- 获取高亮候选项
         local highlighted = context:get_property("translation_highlighted") or ""
         context:set_property("translation_highlighted", "")  -- 重置
+        log.info("highlighted: " .. tostring(highlighted))
         
         if highlighted == "" then
+            log.error("no highlighted candidate on filter")
             yield(Candidate("error", 0, 0, "[无高亮候选项]", "请先高亮候选词"))
             for cand in input:iter() do yield(cand) end
             return
         end
         
         -- 执行翻译
+        log.info("trans begin api=" .. tostring(translation.config.default_api))
+        local t0 = os.time()
         local translated_text = trans(highlighted)
+        local dt = os.difftime(os.time(), t0)
+        log.info(string.format("trans end dt=%ds ok=%s", dt, tostring(translated_text ~= nil)))
         
         if not translated_text then
+            log.error("translation failed")
             yield(Candidate("error", 0, #input_text, "[翻译失败]", "请检查网络或API配置"))
             
             for cand in input:iter() do
@@ -101,6 +114,7 @@ function filter.func(input, env)
 
     -- 模式2：后缀触发模式
     if input_text:sub(-2) == "''" then
+        log.info("suffix trigger detected")
         local raw_input = {}
         local count = 0
         for cand in input:iter() do
@@ -136,7 +150,11 @@ function filter.func(input, env)
             return
         end
         
+        log.info("suffix trans begin: " .. tostring(raw_input[1] or ""))
+        local t1 = os.time()
         local translated_text = trans(raw_input[1])
+        local dt1 = os.difftime(os.time(), t1)
+        log.info(string.format("suffix trans end dt=%ds ok=%s", dt1, tostring(translated_text ~= nil)))
         
         if not translated_text then
             yield(Candidate("error", 0, #input_text, "[翻译失败]", "请检查网络或API配置"))
