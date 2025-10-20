@@ -1,5 +1,7 @@
 -- local log = require("log")
 local http = require("simplehttp")
+-- 全局 HTTP 超时（秒），避免网络不通时卡住引擎线程
+http.TIMEOUT = 2
 local json = require("json")
 local sha = require("sha2")
 
